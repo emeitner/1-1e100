@@ -16,45 +16,33 @@ from os.path import exists, isdir, dirname
 from urllib import urlretrieve, quote_plus
 import urlparse
 
+import ConfigParser
 import os
 import re
 from mimetools import Message
 from StringIO import StringIO
 import pickle
 
-### Configuration to be moved to another file
-##
-local_cache = '/var/cache/1-1e100'
+configparser = ConfigParser.ConfigParser()
+config = {}
 
-cache_patterns = {
-  'ajax.googleapis.com': '/ajax/.+'
-  ,'fonts.googleapis.com': '/.*'
-  ,'fonts.gstatic.com': '/.*'
-  ,'www.gstatic.com': '/images/icons/.*'
-}
 
-# Download all missing resources to the cache
-download_missing = True
-
-# What to do if a request was not handled:
-# True = block it
-# False = let it go through
-default_policy_is_block = True
-
-# FIXME
-# Domains to divert to local server
-divert_domains = [
-  'ajax.googleapis.com'
-  ,'fonts.googleapis.com'
-#  ,'gstatic.com'
-#  ,'googlecommerce.com'
-#  ,'apis.google.com'
-#  ,'googleusercontent.com'
-  ]
-suggest_archiveorg = True
-
-##
-###
+##############################
+# Set up some things before 
+# the real work begins
+def start():
+  configparser.read("config.ini")
+  try:
+    config['local_cache'] = configparser.get('paths', 'local_cache')
+    config['download_missing'] = configparser.getboolean('options', 'download_missing')
+    config['default_policy_is_block'] = configparser.getboolean('options', 'default_policy_is_block')
+    config['suggest_archiveorg'] = configparser.getboolean('options', 'suggest_archiveorg')
+    config['rules'] = {}
+    for host,regex in configparser.items('rules'):
+      config['rules'][host] = regex
+  except ConfigParser.Error:
+    print("Exception occurred while parsing config")
+    # FIXME DIE HERE
 
 ##############################
 # intercept all requests and
@@ -73,12 +61,12 @@ def request(flow):
   urlparts = urlparse.urlparse(orig_url)
   url = urlparse.urlunsplit([urlparts.scheme,host,urlparts.path,urlparts.query,''])
 
-  if host in cache_patterns.keys():
-    if re.search(cache_patterns[host],get_path(url)):
-      ctx.log.debug( ('cache_pattern match: %s %s' % (host, cache_patterns[host]) ))
+  if host in config['rules'].keys():
+    if re.search(config['rules'][host],get_path(url)):
+      ctx.log.debug( ('Rule match: %s %s' % (host, config['rules'][host]) ))
       if 'referer' in flow.request.headers : #.keys():
         ctx.log.debug( 'Referred by: %s' % ( flow.request.headers['referer'] ) )
-      cache = CacheFile( url,local_cache)
+      cache = CacheFile( url,config['local_cache'])
       if cache.is_in_cache():
         cache.load()
         ctx.log.debug(  'Retrieved from cache: '+url )
@@ -88,7 +76,7 @@ def request(flow):
         reason = "OK2"
         #ctx.log.debug( 'Cache data=: '+data )
       else: # not cached
-        if download_missing:
+        if config['download_missing']:
           if cache.retrieve():
             ctx.log.debug(  'Downloaded: '+url  )
             data = cache.data
@@ -104,19 +92,19 @@ def request(flow):
         else: #  not download_missing
           data = ''
           content_type = "text/html"
-          status_code = 403
+          status_code = 404
           reason = "NOPE"
         # end else: #not cached
-      # end if re.search(cache_patterns[host],get_path(url)):
-    # end if host in cache_patterns.keys()
-    else: # host NOT in cache_patterns.keys()
+      # end if re.search(config['rules'][host],get_path(url)):
+    # end if host in config['rules'].keys()
+    else: # host NOT in config['rules'].keys()
       block = True
-  elif default_policy_is_block:
+  elif config['default_policy_is_block']:
       block = True
 
   if block == True:
     # Use flow.kill(resp) ??
-    if suggest_archiveorg:
+    if config['suggest_archiveorg']:
       data = '<html><b>1/1e100</b><br ><a href="https://web.archive.org/web/*/%s">https://web.archive.org/web/*/%s</a></html>' % (url,url)
     else:
       data = '1/1e100'
