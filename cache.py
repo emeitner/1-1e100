@@ -1,35 +1,29 @@
-#from libmproxy.protocol.http import HTTPResponse
+"""
+  Script for mitmproxy/mitmdump running in transparent mode
+
+  Based on: https://raw.githubusercontent.com/mitmproxy/mitmproxy/master/examples/redirect_requests.py
+
+
+"""
 
 from mitmproxy.models.http import HTTPResponse
-#from libmproxy.models import HTTPResponse
 from netlib.http import Headers
-
 from mitmproxy import ctx
+#from mitmproxy.script import concurrent
 
-#from netlib.odict import ODictCaseless
-from pprint import pprint
+from pprint import pprint,pformat
 from os.path import exists, isdir, dirname
-from os import makedirs
 from urllib import urlretrieve, quote_plus
-
 import urlparse
 
-from hashlib import md5
 import os
 import re
 from mimetools import Message
 from StringIO import StringIO
 import pickle
 
-from pprint import pformat
-
-"""
-Based on: https://raw.githubusercontent.com/mitmproxy/mitmproxy/master/examples/redirect_requests.py
-
-To do:
-
-"""
-
+### Configuration to be moved to another file
+##
 local_cache = '/var/cache/1-1e100'
 
 cache_patterns = {
@@ -59,8 +53,14 @@ divert_domains = [
   ]
 suggest_archiveorg = True
 
-############################################33
-# @concurrent
+##
+###
+
+##############################
+# intercept all requests and
+# handle according to rules
+# in configuration
+#@concurrent
 def request(flow):
   ctx.log.debug( 'request():')
   block = False
@@ -68,19 +68,10 @@ def request(flow):
   # pretty_host(hostheader=True) takes the Host: header of the request into account,
   # which is useful in transparent mode where we usually only have the IP otherwise.
   host = flow.request.pretty_host
+
   orig_url = flow.request.url
   urlparts = urlparse.urlparse(orig_url)
   url = urlparse.urlunsplit([urlparts.scheme,host,urlparts.path,urlparts.query,''])
-
-  # # Method 1: Answer with a locally generated response
-  # if host.endswith("example.com"):
-  #     resp = HTTPResponse(
-  #         [1, 1], 200, "OK"
-  #         ,Headers( Content_Type="text/html" )
-  #         ,"You been hacksed!"
-  #         )
-  #     flow.reply(resp)
-  #     return
 
   if host in cache_patterns.keys():
     if re.search(cache_patterns[host],get_path(url)):
@@ -145,7 +136,6 @@ def request(flow):
       )
   #ctx.log.debug( 'HTTPResponse: '+pformat(resp) )
   flow.response = resp
-  #ctx.log.debug( 'WHOA! HOW\'D THIS HAPPEN? '+url )
   return
 
 
@@ -158,14 +148,10 @@ def get_host(url):
   _, host, _, _, _, _ = urlparse.urlparse(url)
   return host
 
-def abort():
-  return False
 
-
-
-###########################
-#
-###########################
+##############################
+# Simple class to encapsulate
+# the cacheing functionality
 class CacheFile(object):
   def __init__(self,url,cache_dir):
     self.__url = url
@@ -212,7 +198,7 @@ class CacheFile(object):
     host_dir = os.path.join( self.__cache_dir,self.__host )
     if not exists( host_dir  ):
       try:
-        makedirs( host_dir )
+        os.makedirs( host_dir )
       except OSError,e:
         self.__error_text = "retrieve() makedirs: "+e.strerror
         return False
@@ -291,8 +277,5 @@ class CacheFile(object):
     if extra:
       log_fd.write(pformat(extra))
     log_fd.close()
-
-
-
 
 # end class CacheFile(object):
