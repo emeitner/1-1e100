@@ -19,6 +19,7 @@ import urlparse
 import ConfigParser
 import os
 import re
+import sys
 from mimetools import Message
 from StringIO import StringIO
 import pickle
@@ -31,8 +32,8 @@ config = {}
 # Set up some things before 
 # the real work begins
 def start():
-  configparser.read("config.ini")
   try:
+    configparser.read("config.ini")
     config['local_cache'] = configparser.get('paths', 'local_cache')
     config['download_missing'] = configparser.getboolean('options', 'download_missing')
     config['default_policy_is_block'] = configparser.getboolean('options', 'default_policy_is_block')
@@ -40,9 +41,9 @@ def start():
     config['rules'] = {}
     for host,regex in configparser.items('rules'):
       config['rules'][host] = regex
-  except ConfigParser.Error:
+  except :
     print("Exception occurred while parsing config")
-    # FIXME DIE HERE
+    sys.exit(1)
 
 ##############################
 # intercept all requests and
@@ -74,7 +75,6 @@ def request(flow):
         content_type = cache.headers['Content-Type']
         status_code = 200
         reason = "OK2"
-        #ctx.log.debug( 'Cache data=: '+data )
       else: # not cached
         if config['download_missing']:
           if cache.retrieve():
@@ -103,7 +103,6 @@ def request(flow):
       block = True
 
   if block == True:
-    # Use flow.kill(resp) ??
     if config['suggest_archiveorg']:
       data = '<html><b>1/1e100</b><br ><a href="https://web.archive.org/web/*/%s">https://web.archive.org/web/*/%s</a></html>' % (url,url)
     else:
@@ -112,7 +111,6 @@ def request(flow):
     status_code = 403
     reason = "1/1e100"
     ctx.log.debug( 'BLOCKED: '+url) 
-
   resp = HTTPResponse(
       'HTTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
       ,status_code
@@ -122,7 +120,6 @@ def request(flow):
         )
       ,data
       )
-  #ctx.log.debug( 'HTTPResponse: '+pformat(resp) )
   flow.response = resp
   return
 
