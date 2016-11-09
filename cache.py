@@ -6,9 +6,9 @@
 
 """
 
-from mitmproxy.models.http import HTTPResponse
+from libmproxy.models import HTTPResponse
+
 from netlib.http import Headers
-from mitmproxy import ctx
 #from mitmproxy.script import concurrent
 
 from pprint import pprint,pformat
@@ -28,9 +28,9 @@ config = {}
 
 
 ##############################
-# Set up some things before 
+# Set up some things before
 # the real work begins
-def start():
+def start(context, argv):
   configparser.read("config.ini")
   try:
     config['local_cache'] = configparser.get('paths', 'local_cache')
@@ -49,8 +49,8 @@ def start():
 # handle according to rules
 # in configuration
 #@concurrent
-def request(flow):
-  ctx.log.debug( 'request():')
+def request(context,flow):
+  context.log(  'request():', level="debug" )
   block = False
 
   # pretty_host(hostheader=True) takes the Host: header of the request into account,
@@ -63,28 +63,28 @@ def request(flow):
 
   if host in config['rules'].keys():
     if re.search(config['rules'][host],get_path(url)):
-      ctx.log.debug( ('Rule match: %s %s' % (host, config['rules'][host]) ))
+      context.log(  ('Rule match: %s %s' % (host, config['rules'][host]) ), level="debug" )
       if 'referer' in flow.request.headers : #.keys():
-        ctx.log.debug( 'Referred by: %s' % ( flow.request.headers['referer'] ) )
+        context.log(  'Referred by: %s' % ( flow.request.headers['referer'] ) , level="debug" )
       cache = CacheFile( url,config['local_cache'])
       if cache.is_in_cache():
         cache.load()
-        ctx.log.debug(  'Retrieved from cache: '+url )
+        context.log(   'Retrieved from cache: '+url , level="debug" )
         data = cache.data
         content_type = cache.headers['Content-Type']
         status_code = 200
         reason = "OK2"
-        #ctx.log.debug( 'Cache data=: '+data )
+        #context.log(  'Cache data=: '+data , level="debug" )
       else: # not cached
         if config['download_missing']:
           if cache.retrieve():
-            ctx.log.debug(  'Downloaded: '+url  )
+            context.log(   'Downloaded: '+url  , level="debug" )
             data = cache.data
             content_type = cache.headers['Content-Type']
             status_code = 200
             reason = "OK3"
           else:
-            ctx.log.debug( 'ERROR: '+cache.error_text )
+            context.log(  'ERROR: '+cache.error_text , level="debug" )
             data=''
             content_type = "text/html"
             status_code = 500
@@ -111,7 +111,7 @@ def request(flow):
     content_type = "text/html"
     status_code = 403
     reason = "1/1e100"
-    ctx.log.debug( 'BLOCKED: '+url) 
+    context.log(  'BLOCKED: '+url, level="debug" )
 
   resp = HTTPResponse(
       'HTTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
@@ -122,7 +122,7 @@ def request(flow):
         )
       ,data
       )
-  #ctx.log.debug( 'HTTPResponse: '+pformat(resp) )
+  #context.log(  'HTTPResponse: '+pformat(resp) , level="debug" )
   flow.response = resp
   return
 
