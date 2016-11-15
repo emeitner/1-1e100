@@ -1,0 +1,21 @@
+#!/bin/bash
+
+export HOME=/opt/1-1e100
+DAEMON=$HOME/proxy.sh
+ARGS=""
+RUNAS="1-1e100" # set to "" for root
+LOGFILE="/var/log/1-1e100"
+######
+
+if [ ! -e $LOGFILE ] ; then
+  touch $LOGFILE
+  [ -n $RUNAS ] && chown $RUNAS: $LOGFILE
+fi
+
+
+[ -n "$RUNAS" ] && RUNASCMD="sudo -u $RUNAS "
+
+cd $HOME
+echo `date +%c` Starting `basename $DAEMON`
+exec $RUNASCMD $DAEMON $ARGS >> $LOGFILE 2>&1
+
