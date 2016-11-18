@@ -1,0 +1,10 @@
+# Part of the 1/1e100 software package.
+# Configuration for setup.sh
+#
+
+# The name or UID of the user that runs the proxy.
+# You may specify a numerical UID range to add additional
+# users that can also bypass all firewall filtering.
+WHITELIST_USERS_UID="1002-1003"
+
+GOOGLE_IP_FILE="/opt/1-1e100/google-ips.txt"
