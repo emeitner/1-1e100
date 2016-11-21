@@ -1,13 +1,5 @@
 #!/bin/bash
 
-RUN_DIR=/var/run/1-1e100
-
-# name or UID of user that run the proxy
-# may specify a numerical UID range to add additional
-# users that can bypass all filtering
-WHITELIST_USERS_UID="1001" #1002-1003"
-
-GOOGLE_IP_FILE="google-ips.txt"
 
 function usage(){
   echo -e "\n$0 [start|stop]\n\n"
@@ -43,6 +35,16 @@ function do_stop(){
 
 }
 
+
+if [ -f setup.cfg ] ; then
+  . setup.cfg
+elif [ -f `dirname $0`/setup.cfg ]; then
+  . `dirname $0`/setup.cfg
+else
+  echo
+  echo "Can't find configuration file setup.cfg."
+  exit 0
+fi
 
 if [ -z "$1" ] ; then
   usage
