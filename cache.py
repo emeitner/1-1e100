@@ -7,20 +7,14 @@
 """
 
 from libmproxy.models import HTTPResponse
-
 from netlib.http import Headers
-#from mitmproxy.script import concurrent
-
-from pprint import pprint,pformat
-from os.path import exists, isdir, dirname
+from pprint import pformat
+from os.path import exists #, isdir, dirname
 from urllib import urlretrieve, quote_plus
 import urlparse
-
 import ConfigParser
 import os
 import re
-from mimetools import Message
-from StringIO import StringIO
 import pickle
 
 configparser = ConfigParser.ConfigParser()
