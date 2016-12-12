@@ -43,8 +43,8 @@ config = {}
 # Set up some things before
 # the real work begins
 def start(context, argv):
-  configparser.read("config.ini")
   try:
+    configparser.read("config.ini")
     config['local_cache'] = configparser.get('paths', 'local_cache')
     config['download_missing'] = configparser.getboolean('options', 'download_missing')
     config['default_policy_is_block'] = configparser.getboolean('options', 'default_policy_is_block')
@@ -52,9 +52,9 @@ def start(context, argv):
     config['rules'] = {}
     for host,regex in configparser.items('rules'):
       config['rules'][host] = regex
-  except ConfigParser.Error:
-    print("Exception occurred while parsing config")
-    # FIXME DIE HERE
+  except ConfigParser.ParsingError:
+    print("Exception occurred while parsing 1/1e100 config")
+    exit(1)
 
 ##############################
 # intercept all requests and
