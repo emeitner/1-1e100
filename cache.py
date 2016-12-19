@@ -34,10 +34,11 @@ import ConfigParser
 import os
 import re
 import pickle
+import logging
 
 configparser = ConfigParser.ConfigParser()
 config = {}
-
+req_id = 0
 
 ##############################
 # Set up some things before
@@ -46,6 +47,8 @@ def start(context, argv):
   try:
     configparser.read("config.ini")
     config['local_cache'] = configparser.get('paths', 'local_cache')
+    config['log_file'] = configparser.get('paths', 'log_file')
+    config['log_level'] = configparser.get('options', 'log_level')
     config['download_missing'] = configparser.getboolean('options', 'download_missing')
     config['default_policy_is_block'] = configparser.getboolean('options', 'default_policy_is_block')
     config['suggest_archiveorg'] = configparser.getboolean('options', 'suggest_archiveorg')
@@ -56,13 +59,29 @@ def start(context, argv):
     print("Exception occurred while parsing 1/1e100 config")
     exit(1)
 
+  if not re.match('^(debug|info|warn|error|critical)$', config['log_level']) :
+    raise("Invalid value for 'log_level' setting in configuration.")
+    exit(1)
+  else:
+    config['log_level'] = eval('logging.'+config['log_level'].upper())
+
+  logging.basicConfig(
+    filename=config['log_file']
+    ,format='%(asctime)s %(levelname)s: %(message)s'
+    , datefmt='%m/%d/%Y %I:%M:%S %p'
+    , level=logging.INFO
+    )
+  logging.info('Starting up.')
+
+
 ##############################
 # intercept all requests and
 # handle according to rules
 # in configuration
 #@concurrent
 def request(context,flow):
-  context.log(  'request():', level="debug" )
+  global req_id
+  logging.debug( 'request():' )
   block = False
 
   # pretty_host(hostheader=True) takes the Host: header of the request into account,
@@ -73,30 +92,33 @@ def request(context,flow):
   urlparts = urlparse.urlparse(orig_url)
   url = urlparse.urlunsplit([urlparts.scheme,host,urlparts.path,urlparts.query,''])
 
+  req_id += 1
+  rid = '%06d' %(req_id)
+
   if host in config['rules'].keys():
     if re.search(config['rules'][host],get_path(url)):
-      context.log(  ('Rule match: %s %s' % (host, config['rules'][host]) ), level="debug" )
+      logging.debug( rid+' Rule match: %s %s' % (host, config['rules'][host]) )
       if 'referer' in flow.request.headers : #.keys():
-        context.log(  'Referred by: %s' % ( flow.request.headers['referer'] ) , level="debug" )
+        logging.info( rid+ ' Referred by: %s' % ( flow.request.headers['referer'] ) )
       cache = CacheFile( url,config['local_cache'])
       if cache.is_in_cache():
         cache.load()
-        context.log(   'Retrieved from cache: '+url , level="debug" )
+        logging.info( rid+  ' Retrieved from cache: '+url )
         data = cache.data
         content_type = cache.headers['Content-Type']
         status_code = 200
         reason = "OK2"
-        #context.log(  'Cache data=: '+data , level="debug" )
+        logging.debug( rid+ ' Cache data=: '+data  )
       else: # not cached
         if config['download_missing']:
           if cache.retrieve():
-            context.log(   'Downloaded: '+url  , level="debug" )
+            logging.info(  rid+ ' Downloaded: '+url  )
             data = cache.data
             content_type = cache.headers['Content-Type']
             status_code = 200
             reason = "OK3"
           else:
-            context.log(  'ERROR: '+cache.error_text , level="debug" )
+            logging.error( rid+ ' ERROR: '+cache.error_text  )
             data=''
             content_type = "text/html"
             status_code = 500
@@ -123,7 +145,7 @@ def request(context,flow):
     content_type = "text/html"
     status_code = 403
     reason = "1/1e100"
-    context.log(  'BLOCKED: '+url, level="debug" )
+    logging.info( rid+ ' BLOCKED: '+url  )
 
   resp = HTTPResponse(
       'HTTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
@@ -134,7 +156,6 @@ def request(context,flow):
         )
       ,data
       )
-  #context.log(  'HTTPResponse: '+pformat(resp) , level="debug" )
   flow.response = resp
   return
 
