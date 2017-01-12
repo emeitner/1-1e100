@@ -14,9 +14,6 @@ function usage(){
 }
 
 function do_start(){
-  sysctl net.ipv4.ip_forward > $RUN_DIR/net.ipv4.ip_forward
-  sysctl -w net.ipv4.ip_forward=1
-
   ipset create googleips hash:net
   cat $GOOGLE_IP_FILE | grep -v '^#' | while read cidr; do
     echo $cidr
@@ -42,10 +39,6 @@ function do_stop(){
   if ipset -q test googleips 8.8.8.8 ; then
     ipset destroy googleips
   fi
-  
-  sysctl -p $RUN_DIR/net.ipv4.ip_forward
-  
-  [ -f $RUN_DIR/net.ipv4.ip_forward ] && rm -f $RUN_DIR/net.ipv4.ip_forward
 }
 
 
