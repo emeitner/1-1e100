@@ -108,10 +108,10 @@ class OneOver1e100Proxy:
 				#! logging.debug( rid+' Rule match: %s %s' % (host, config['rules'][host]) )
 				#! if 'referer' in flow.request.headers : #.keys():
 					#! logging.info( rid+ ' Referred by: %s' % ( flow.request.headers['referer'] ) )
-      			cache = CacheFile( url,config['local_cache'])
-      			if cache.is_in_cache():
-        			cache.load()
-        			#! logging.info( rid+  ' Retrieved from cache: '+url )
+				cache = CacheFile( url,config['local_cache'])
+				if cache.is_in_cache():
+					cache.load()
+					#! logging.info( rid+  ' Retrieved from cache: '+url )
 					data = cache.data
 					content_type = cache.headers['Content-Type']
 					status_code = 200
@@ -136,11 +136,11 @@ class OneOver1e100Proxy:
 						content_type = "text/html"
 						status_code = 404
 						reason = "NOPE"
-				# end else: #not cached
-			# end if re.search(config['rules'][host],get_path(url)):
-		# end if host in config['rules'].keys()
-		else: # host NOT in config['rules'].keys()
-			block = True
+					# end else: #not cached
+				# end if re.search(config['rules'][host],get_path(url)):
+			# end if host in config['rules'].keys()
+			else: # host NOT in config['rules'].keys()
+				block = True
 		elif config['default_policy_is_block']:
 			block = True
 
@@ -176,133 +176,133 @@ class OneOver1e100Proxy:
 		return host
 
 
-##############################
-# Simple class to encapsulate
-# the cacheing functionality
-class CacheFile(object):
-  def __init__(self,url,cache_dir):
-    self.__url = url
-    self.__cache_dir = cache_dir
-    scheme, host, path, params,query,fragment = urlparse.urlparse( url )
-    self.__host = host
-    self.__path = path
-    self.__query = query
-    self.__cache_file_path = self._create_cache_file_name(self.__host,self.__path+'?'+self.__query)
-    self.__data = ''
-    self.__headers = ''
-    self.__error_text = ''
+	##############################
+	# Simple class to encapsulate
+	# the cacheing functionality
+	class CacheFile(object):
+		def __init__(self,url,cache_dir):
+			self.__url = url
+			self.__cache_dir = cache_dir
+			scheme, host, path, params,query,fragment = urlparse.urlparse( url )
+			self.__host = host
+			self.__path = path
+			self.__query = query
+			self.__cache_file_path = self._create_cache_file_name(self.__host,self.__path+'?'+self.__query)
+			self.__data = ''
+			self.__headers = ''
+			self.__error_text = ''
 
-  @property
-  def url(self):
-     return self.__url
-  @property
-  def host(self):
-     return self.__host
-  @property
-  def path(self):
-     return self.__path
-  @property
-  def query(self):
-     return self.__query
-  @property
-  def data(self):
-     return self.__data
-  @property
-  def headers(self):
-     return self.__headers
-  @property
-  def cache_file_path(self):
-     return self.__cache_file_path
-  @property
-  def error_text(self):
-     return self.__error_text
+		@property
+		def url(self):
+	 		return self.__url
+		@property
+		def host(self):
+		 	return self.__host
+		@property
+		def path(self):
+		 	return self.__path
+		@property
+		def query(self):
+		 	return self.__query
+		@property
+		def data(self):
+		 	return self.__data
+		@property
+		def headers(self):
+		 	return self.__headers
+		@property
+		def cache_file_path(self):
+		 	return self.__cache_file_path
+		@property
+		def error_text(self):
+ 			return self.__error_text
 
-  #
-  # download the file pointed at by self.__url and store it in the cache
-  # along with the headers
-  #
-  def retrieve(self):
-    host_dir = os.path.join( self.__cache_dir,self.__host )
-    if not exists( host_dir  ):
-      try:
-        os.makedirs( host_dir )
-      except OSError as e:
-        self.__error_text = "retrieve() makedirs: "+e.strerror
-        return False
-    if exists( self.__cache_file_path ):
-      os.remove( self.__cache_file_path )
-    try:
-      [fn,resp] = urlretrieve(self.__url,self.__cache_file_path )
-    except IOError as e:
-      self.__error_text = "retrieve(%s,%s) urlretrieve(): %s" %(self.__url,self.__cache_file_path, e.strerror)
-      return False
-    headers = dict(map((lambda h: (h.replace("\r\n",'')).split(':',1)),resp.headers))
-    headers_file = self.__cache_file_path+'.headers'
-    try:
-      file_fd = open(headers_file, 'w')
-      pickle.dump(headers,file_fd)
-      file_fd.close()
-    except:
-      return False
-    if self.load():
-      #self.__write_log("OK data="+self.__data)
-      return True
-    #self.__write_log("NO data="+self.__data)
-    return False
+		#
+		# download the file pointed at by self.__url and store it in the cache
+		# along with the headers
+		#
+		def retrieve(self):
+			host_dir = os.path.join( self.__cache_dir,self.__host )
+			if not exists( host_dir  ):
+				try:
+					os.makedirs( host_dir )
+				except OSError as e:
+					self.__error_text = "retrieve() makedirs: "+e.strerror
+					return False
+			if exists( self.__cache_file_path ):
+				os.remove( self.__cache_file_path )
+			try:
+				[fn,resp] = urlretrieve(self.__url,self.__cache_file_path )
+			except IOError as e:
+				self.__error_text = "retrieve(%s,%s) urlretrieve(): %s" %(self.__url,self.__cache_file_path, e.strerror)
+				return False
+			headers = dict(map((lambda h: (h.replace("\r\n",'')).split(':',1)),resp.headers))
+			headers_file = self.__cache_file_path+'.headers'
+			try:
+				file_fd = open(headers_file, 'w')
+				pickle.dump(headers,file_fd)
+				file_fd.close()
+			except:
+				return False
+			if self.load():
+				#self.__write_log("OK data="+self.__data)
+				return True
+			#self.__write_log("NO data="+self.__data)
+			return False
 
-  #
-  # Check if the file from self.__url is in the cache
-  #
-  def is_in_cache(self):
-    return exists( self.__cache_file_path )
+		#
+		# Check if the file from self.__url is in the cache
+		#
+		def is_in_cache(self):
+			return exists( self.__cache_file_path )
 
 
-  #
-  # Load the data from the cache
-  #
-  def load(self):
-    self.__data = self.__load_file(self.__cache_file_path)
-    self.__headers = self.__load_headers( self.__cache_file_path+'.headers' )
-    if not self.__data or not self.__headers:
-      return False
-    return True
+		#
+		# Load the data from the cache
+		#
+		def load(self):
+			self.__data = self.__load_file(self.__cache_file_path)
+			self.__headers = self.__load_headers( self.__cache_file_path+'.headers' )
+			if not self.__data or not self.__headers:
+		  		return False
+			return True
 
-  #
-  # Get the contents of a file
-  #
-  def __load_file(self,path):
-    try:
-      file_fd = open(path, 'rb')
-      content = file_fd.read(-1)
-    except OSError:
-      return False
-    file_fd.close()
-    return content
+		#
+		# Get the contents of a file
+		#
+		def __load_file(self,path):
+			try:
+				file_fd = open(path, 'rb')
+				content = file_fd.read(-1)
+			except OSError:
+				return False
+			file_fd.close()
+			return content
 
-  #
-  # Get the contents of a file and unpickle it. used only for headers data
-  #
-  def __load_headers(self,path):
-    try:
-      file_fd = open(path, 'r')
-      data = pickle.load( file_fd )
-    except IOError as e:
-      self.__error_text = e.strerror
-      return False
-    file_fd.close()
-    return data
+		#
+		# Get the contents of a file and unpickle it. used only for headers data
+		#
+		def __load_headers(self,path):
+			try:
+				file_fd = open(path, 'r')
+				data = pickle.load( file_fd )
+			except IOError as e:
+				self.__error_text = e.strerror
+				return False
+			file_fd.close()
+			return data
 
-  #
-  # Create a file name from the cache directory and path data in the url
-  #
-  def _create_cache_file_name(self,host,path):
-    return os.path.join( self.__cache_dir, host, quote_plus( path ) )
+		#
+		# Create a file name from the cache directory and path data in the url
+		#
+		def _create_cache_file_name(self,host,path):
+			return os.path.join( self.__cache_dir, host, quote_plus( path ) )
 
-  def __write_log(self,msg,extra=None):
-    log_fd = open('/tmp/1-1e100.log', 'a')
-    log_fd.write("%s :: %s\n" % (self.__url, msg) )
-    if extra:
-      log_fd.write(pformat(extra))
-    log_fd.close()
+		def __write_log(self,msg,extra=None):
+			log_fd = open('/tmp/1-1e100.log', 'a')
+			log_fd.write("%s :: %s\n" % (self.__url, msg) )
+			if extra:
+				log_fd.write(pformat(extra))
+				log_fd.close()
 
-# end class CacheFile(object):
+		# end class CacheFile(object):
