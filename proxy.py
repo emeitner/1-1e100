@@ -26,107 +26,109 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 
 from mitmproxy import ctx
-
-#from mitmproxy.models.http import HTTPResponse
 from mitmproxy.net.http import Headers
-
-#from mitmproxy.script import concurrent
-
+from mitmproxy import http
 from pprint import pprint,pformat
 from os.path import exists, isdir, dirname
 from urllib.request import urlretrieve
 from urllib.parse import quote_plus
-import urllib.parse
-
+from urllib.parse import urlparse,urlunsplit
 import configparser
 import os
 import re
 import sys
-#from mimetools import Message
 from io import StringIO
 import pickle
 import logging
-
 import traceback
-
+from pprint import pprint,pformat
 
 class OneOver1e100Proxy:
 
 	def __init__(self):
+		ctx.log.debug('__init__() Start')
 		self.config = {}
 		self.req_id = 0
-		configparser = ConfigParser.ConfigParser()
+		cfgparser = configparser.ConfigParser()
 
 		#traceback.print_exc(file=sys.stdout)
 		try:
-			configparser.read("config.ini")
-			self.config['local_cache'] = configparser.get('paths', 'local_cache')
-			self.config['log_file'] = configparser.get('paths', 'log_file')
-			self.config['log_level'] = configparser.get('options', 'log_level')
-			self.config['download_missing'] = configparser.getboolean('options', 'download_missing')
-			self.config['default_policy_is_block'] = configparser.getboolean('options', 'default_policy_is_block')
-			self.config['suggest_archiveorg'] = configparser.getboolean('options', 'suggest_archiveorg')
+			cfgparser.read("config.ini")
+			self.config['local_cache'] = cfgparser.get('paths', 'local_cache')
+			self.config['log_file'] = cfgparser.get('paths', 'log_file')
+			self.config['log_level'] = cfgparser.get('options', 'log_level')
+			self.config['download_missing'] = cfgparser.getboolean('options', 'download_missing')
+			self.config['default_policy_is_block'] = cfgparser.getboolean('options', 'default_policy_is_block')
+			self.config['suggest_archiveorg'] = cfgparser.getboolean('options', 'suggest_archiveorg')
 			self.config['rules'] = {}
-			for host,regex in configparser.items('rules'):
+			for host,regex in cfgparser.items('rules'):
 				self.config['rules'][host] = regex
-		except ConfigParser.ParsingError:
-			print("Exception occurred while parsing 1/1e100 config")
+		except configparser.ParsingError:
+			ctx.log.critical("Exception occurred while parsing 1/1e100 config")
 			sys.exit(1)
 
-		if not re.match('^(debug|info|warn|error|critical)$', self.config['log_level']) :
-			raise("Invalid value for 'log_level' setting in configuration.")
-			exit(1)
-		else:
-			self.config['log_level'] = eval('logging.'+self.config['log_level'].upper())
+		#if not re.match('^(debug|info|warn|error|critical)$', self.config['log_level']) :
+		#	raise("Invalid value for 'log_level' setting in configuration.")
+		#	exit(1)
+		#else:
+		#	self.config['log_level'] = eval('ctx.log.'+self.config['log_level'].upper())
 
-		logging.basicConfig(
-			filename=self.config['log_file']
-			,format='%(asctime)s %(levelname)s: %(message)s'
-			, datefmt='%m/%d/%Y %I:%M:%S %p'
-			, level=logging.INFO
-		)
-		#! logging.info('Starting up.')
+		#logging.basicConfig(
+		#	filename=self.config['log_file']
+		#	,format='%(asctime)s %(levelname)s: %(message)s'
+		#	, datefmt='%m/%d/%Y %I:%M:%S %p'
+		#	, level=logging.INFO
+		#)
+		ctx.log.debug('__init__() done.')
 
-	def request(flow):
-		global req_id
-		#! logging.debug( 'request():' )
+	def request(self,flow):
+		ctx.log.debug( 'request():' )
 		block = False
+		status_code = 0
+		reason=''
+		content_type=''
+		data=''
 
 		# pretty_host(hostheader=True) takes the Host: header of the request into account,
 		# which is useful in transparent mode where we usually only have the IP otherwise.
 		host = flow.request.pretty_host
 
 		orig_url = flow.request.url
-		urlparts = urlparse.urlparse(orig_url)
-		url = urlparse.urlunsplit([urlparts.scheme,host,urlparts.path,urlparts.query,''])
+		try:
+			urlparts = urlparse(orig_url)
+		except Exception as e:
+			logging.critical('Unable to parse URL {}: {}'.format(orig_url,e))
+			block = True
+		url = urlunsplit([urlparts.scheme,host,urlparts.path,urlparts.query,''])
 
-		req_id += 1
-		rid = '%06d' %(req_id)
+		self.req_id += 1
+		rid = '%06d' %(self.req_id)
 
-		if host in config['rules'].keys():
-			if re.search(config['rules'][host],get_path(url)):
-				#! logging.debug( rid+' Rule match: %s %s' % (host, config['rules'][host]) )
-				#! if 'referer' in flow.request.headers : #.keys():
-					#! logging.info( rid+ ' Referred by: %s' % ( flow.request.headers['referer'] ) )
-				cache = CacheFile( url,config['local_cache'])
+		if host in self.config['rules'].keys():
+			if re.search(self.config['rules'][host],self.get_path(url)):
+				ctx.log.debug( rid+' Rule match: %s %s' % (host, self.config['rules'][host]) )
+				if 'referer' in flow.request.headers : #.keys():
+					ctx.log.info( rid+ ' Referred by: %s' % ( flow.request.headers['referer'] ) )
+				cache = CacheFile( url,self.config['local_cache'])
 				if cache.is_in_cache():
 					cache.load()
-					#! logging.info( rid+  ' Retrieved from cache: '+url )
+					ctx.log.info( rid+  ' Retrieved from cache: '+url )
 					data = cache.data
+					ctx.log.debug(pformat(cache.headers))
 					content_type = cache.headers['Content-Type']
 					status_code = 200
 					reason = "OK2"
-					#! logging.debug( rid+ ' Cache data=: '+data  )
+					ctx.log.debug( rid+ ' Cached data loaded. ' )
 				else: # not cached
-					if config['download_missing']:
+					if self.config['download_missing']:
 						if cache.retrieve():
-							#! logging.info(  rid+ ' Downloaded: '+url  )
+							ctx.log.info(  rid+ ' Downloaded: '+url  )
 							data = cache.data
 							content_type = cache.headers['Content-Type']
 							status_code = 200
 							reason = "OK3"
 						else:
-							#! logging.error( rid+ ' ERROR: '+cache.error_text  )
+							ctx.log.error( rid+ ' ERROR: '+cache.error_text  )
 							data=''
 							content_type = "text/html"
 							status_code = 500
@@ -136,173 +138,214 @@ class OneOver1e100Proxy:
 						content_type = "text/html"
 						status_code = 404
 						reason = "NOPE"
-					# end else: #not cached
-				# end if re.search(config['rules'][host],get_path(url)):
-			# end if host in config['rules'].keys()
-			else: # host NOT in config['rules'].keys()
-				block = True
-		elif config['default_policy_is_block']:
-			block = True
+				# end else: #not cached
+			# end if re.search(self.config['rules'][host],get_path(url)):
+			else: # not re.search(self.config['rules'][host],self.get_path(url)):
+				block = self.config['default_policy_is_block']
+		else: # host NOT in self.config['rules'].keys()
+			block = self.config['default_policy_is_block']
+
+		if self.config['default_policy_is_block']:
+			ctx.log.info('Default policy is BLOCK')
 
 		if block == True:
+			ctx.log.info('URL blocked: '+url)
 			# Use flow.kill(resp) ??
-			if config['suggest_archiveorg']:
+			content_type = "text/html"
+			reason = "1/1e100"
+			if self.config['suggest_archiveorg']:
 				data = '<html><b>1/1e100</b><br ><a href="https://web.archive.org/web/*/%s">https://web.archive.org/web/*/%s</a></html>' % (url,url)
+				status_code = 200
+				ctx.log.debug('a.o!')
 			else:
 				data = '1/1e100'
-				content_type = "text/html"
 				status_code = 403
-				reason = "1/1e100"
-				#! logging.info( rid+ ' BLOCKED: '+url  )
+				ctx.log.info( rid+ ' BLOCKED: '+url  )
 
-				resp = HTTPResponse(
-					'HTTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
-					,status_code
-					,reason
-					,Headers(
-						Content_Type=content_type
-					)
-					,data
-				)
-				flow.response = resp
-				return
+		if type(data) == str:
+			data = data.encode()
+		if type(reason) == str:
+			reason = reason.encode()
+		if type(content_type) == str:
+			content_type = content_type.encode()
 
-	def get_path(url):
-  		_, _, path, _, _, _ = urlparse.urlparse(url)
+		print('content_type={} block={} reason={}'.format(content_type,block,reason))
+
+		resp = http.HTTPResponse(
+			'HTTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
+			,status_code
+			,reason
+			,Headers(
+				Content_Type=content_type
+			)
+			,data
+		)
+		resp2 = http.HTTPResponse.make(
+			#b'HTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
+			status_code
+			#,reason
+			,data
+			,{
+				'Content_Type':content_type
+			}
+
+		)
+
+		ctx.log.debug('RESPONSE: '+pformat(resp))
+		flow.response = resp
+		#flow.kill()
+		ctx.log.debug("---------------------------------")
+		#return True
+
+		# end request()
+
+	def get_path(self,url):
+  		_, _, path, _, _, _ = urlparse(url)
   		return path
 
-	def get_host(url):
-		_, host, _, _, _, _ = urlparse.urlparse(url)
+	def get_host(self,url):
+		_, host, _, _, _, _ = urlparse(url)
 		return host
 
 
-	##############################
-	# Simple class to encapsulate
-	# the cacheing functionality
-	class CacheFile(object):
-		def __init__(self,url,cache_dir):
-			self.__url = url
-			self.__cache_dir = cache_dir
-			scheme, host, path, params,query,fragment = urlparse.urlparse( url )
-			self.__host = host
-			self.__path = path
-			self.__query = query
-			self.__cache_file_path = self._create_cache_file_name(self.__host,self.__path+'?'+self.__query)
-			self.__data = ''
-			self.__headers = ''
-			self.__error_text = ''
+##############################
+# Simple class to encapsulate
+# the cacheing functionality
+class CacheFile(object):
+	def __init__(self,url,cache_dir):
+		self.__url = url
+		self.__cache_dir = cache_dir
+		scheme, host, path, params,query,fragment = urlparse( url )
+		self.__host = host
+		self.__path = path
+		self.__query = query
+		self.__cache_file_path = self._create_cache_file_name(self.__host,self.__path+'?'+self.__query)
+		self.__data = ''
+		self.__headers = ''
+		self.__error_text = ''
 
-		@property
-		def url(self):
-	 		return self.__url
-		@property
-		def host(self):
-		 	return self.__host
-		@property
-		def path(self):
-		 	return self.__path
-		@property
-		def query(self):
-		 	return self.__query
-		@property
-		def data(self):
-		 	return self.__data
-		@property
-		def headers(self):
-		 	return self.__headers
-		@property
-		def cache_file_path(self):
-		 	return self.__cache_file_path
-		@property
-		def error_text(self):
- 			return self.__error_text
+	@property
+	def url(self):
+ 		return self.__url
+	@property
+	def host(self):
+	 	return self.__host
+	@property
+	def path(self):
+	 	return self.__path
+	@property
+	def query(self):
+	 	return self.__query
+	@property
+	def data(self):
+	 	return self.__data
+	@property
+	def headers(self):
+	 	return self.__headers
+	@property
+	def cache_file_path(self):
+	 	return self.__cache_file_path
+	@property
+	def error_text(self):
+			return self.__error_text
 
-		#
-		# download the file pointed at by self.__url and store it in the cache
-		# along with the headers
-		#
-		def retrieve(self):
-			host_dir = os.path.join( self.__cache_dir,self.__host )
-			if not exists( host_dir  ):
-				try:
-					os.makedirs( host_dir )
-				except OSError as e:
-					self.__error_text = "retrieve() makedirs: "+e.strerror
-					return False
-			if exists( self.__cache_file_path ):
-				os.remove( self.__cache_file_path )
+	#
+	# download the file pointed at by self.__url and store it in the cache
+	# along with the headers
+	#
+	def retrieve(self):
+		host_dir = os.path.join( self.__cache_dir,self.__host )
+		if not exists( host_dir  ):
 			try:
-				[fn,resp] = urlretrieve(self.__url,self.__cache_file_path )
-			except IOError as e:
-				self.__error_text = "retrieve(%s,%s) urlretrieve(): %s" %(self.__url,self.__cache_file_path, e.strerror)
+				os.makedirs( host_dir )
+			except OSError as e:
+				self.__error_text = "retrieve() makedirs: "+e.strerror
 				return False
-			headers = dict(map((lambda h: (h.replace("\r\n",'')).split(':',1)),resp.headers))
-			headers_file = self.__cache_file_path+'.headers'
-			try:
-				file_fd = open(headers_file, 'w')
-				pickle.dump(headers,file_fd)
-				file_fd.close()
-			except:
-				return False
-			if self.load():
-				#self.__write_log("OK data="+self.__data)
-				return True
-			#self.__write_log("NO data="+self.__data)
+		if exists( self.__cache_file_path ):
+			os.remove( self.__cache_file_path )
+		try:
+			[fn,resp] = urlretrieve(self.__url,self.__cache_file_path )
+		except IOError as e:
+			self.__error_text = "retrieve(%s,%s) urlretrieve(): %s" %(self.__url,self.__cache_file_path, e.strerror)
+			return False
+		#headers = dict(map((lambda h: (h.replace("\r\n",'')).split(':',1)),resp.headers))
+		headers = dict( resp.items() )
+		#print('HEADERS='+pformat(headers))
+		headers_file = self.__cache_file_path+'.headers'
+		try:
+			file_fd = open(headers_file, 'wb')
+			pickle.dump(headers,file_fd)
+			file_fd.close()
+		except pickle.PicklingError as e:
+			ctx.log.critical('Unable to pickle headers.')
+			raise e
+		except Exception as e:
+			ctx.log.debug(str(e))
 			return False
 
-		#
-		# Check if the file from self.__url is in the cache
-		#
-		def is_in_cache(self):
-			return exists( self.__cache_file_path )
-
-
-		#
-		# Load the data from the cache
-		#
-		def load(self):
-			self.__data = self.__load_file(self.__cache_file_path)
-			self.__headers = self.__load_headers( self.__cache_file_path+'.headers' )
-			if not self.__data or not self.__headers:
-		  		return False
+		if self.load():
+			ctx.log.debug("OK data="+self.__data.decode())
 			return True
+		ctx.log.debug("NO data="+self.__data.decode())
+		return False
 
-		#
-		# Get the contents of a file
-		#
-		def __load_file(self,path):
-			try:
-				file_fd = open(path, 'rb')
-				content = file_fd.read(-1)
-			except OSError:
-				return False
-			file_fd.close()
-			return content
+	#
+	# Check if the file from self.__url is in the cache
+	#
+	def is_in_cache(self):
+		return exists( self.__cache_file_path )
 
-		#
-		# Get the contents of a file and unpickle it. used only for headers data
-		#
-		def __load_headers(self,path):
-			try:
-				file_fd = open(path, 'r')
-				data = pickle.load( file_fd )
-			except IOError as e:
-				self.__error_text = e.strerror
-				return False
-			file_fd.close()
-			return data
 
-		#
-		# Create a file name from the cache directory and path data in the url
-		#
-		def _create_cache_file_name(self,host,path):
-			return os.path.join( self.__cache_dir, host, quote_plus( path ) )
+	#
+	# Load the data from the cache
+	#
+	def load(self):
+		self.__data = self.__load_file(self.__cache_file_path)
+		self.__headers = self.__load_headers( self.__cache_file_path+'.headers' )
+		if not self.__data or not self.__headers:
+	  		return False
+		return True
 
-		def __write_log(self,msg,extra=None):
-			log_fd = open('/tmp/1-1e100.log', 'a')
-			log_fd.write("%s :: %s\n" % (self.__url, msg) )
-			if extra:
-				log_fd.write(pformat(extra))
-				log_fd.close()
+	#
+	# Get the contents of a file
+	#
+	def __load_file(self,path):
+		try:
+			file_fd = open(path, 'rb')
+			content = file_fd.read(-1)
+		except OSError:
+			return False
+		file_fd.close()
+		return content
 
-		# end class CacheFile(object):
+	#
+	# Get the contents of a file and unpickle it. used only for headers data
+	#
+	def __load_headers(self,path):
+		try:
+			file_fd = open(path, 'rb')
+			data = pickle.load( file_fd )
+		except IOError as e:
+			self.__error_text = e.strerror
+			return False
+		file_fd.close()
+		return data
+
+	#
+	# Create a file name from the cache directory and path data in the url
+	#
+	def _create_cache_file_name(self,host,path):
+		return os.path.join( self.__cache_dir, host, quote_plus( path ) )
+
+	def __write_log(self,msg,extra=None):
+		log_fd = open('/tmp/1-1e100.log', 'a')
+		log_fd.write("%s :: %s\n" % (self.__url, msg) )
+		if extra:
+			log_fd.write(pformat(extra))
+			log_fd.close()
+
+	# end class CacheFile(object):
+
+addons = [
+    OneOver1e100Proxy()
+]
