@@ -3,24 +3,24 @@
 
 Install
 =======
-  sudo apt-get install python-pip python-dev libffi-dev libssl-dev libxml2-dev libxslt1-dev libjpeg8-dev zlib1g-dev g++ python-bs4 ipset
-  sudo mkdir -p /opt
-  cd /opt 
-  git ..... 1-1e100
-  cd 1-1e100
+  sudo apt-get install python3 python3-pip python3-virtualenv python3-dev
+  sudo apt-get install ipset
 
-  pip install virtualenv
-OR
-sudo apt-get install  python-virtualenv
- . venv/bin/activate
-pip install mitmproxy
+  sudo adduser --force-badname 1-1e100
 
-mkdir /var/cache/1-1e100
-mkdir /var/run/1-1e100
-log /var/log/1-1e100
+  sudo mkdir /opt/1-1e100
+  sudo mkdir /var/cache/1-1e100
+  sudo mkdir /var/run/1-1e100
+  sudo chown 1-1e100: /opt/1-1e100 /var/cache/1-1e100 /var/run/1-1e100
+  sudo -u 1-1e100 -i
+  cd /opt/1-1e100
+  git clone https://github.com/emeitner/1-1e100.git .
+  cp config.ini.example config.ini
 
-add user "1-1e100"
-  1-1e100:x:1001:1001:1/1e100,,,:/opt/1-1e100:/bin/bash 
+  virtualenv -p `which python3` venv
+  . venv/bin/activate
+  pip install mitmproxy==3.0.4
+
 
 Components
 ==========
@@ -35,7 +35,6 @@ MITMProxy:
   Reverse Proxy:
     Listening on 127.0.0.10:4432
     Uses basic rules to determine if a request:
-      # should be sent straight through(Blogger.com...)
-      should be retrieved, cached, and serviced from cache for all future requests
-      should be ignored and not serviced.(return RST?)
-
+      # should be retrieved, cached, and serviced from cache for all future requests
+      # should be sent straight through
+      # should be ignored and not serviced.
