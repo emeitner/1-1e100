@@ -63,22 +63,9 @@ class OneOver1e100Proxy:
 			self.config['rules'] = {}
 			for host,regex in cfgparser.items('rules'):
 				self.config['rules'][host] = regex
-		except configparser.ParsingError:
-			ctx.log.critical("Exception occurred while parsing 1/1e100 config")
+		except configparser.Error:
+			ctx.log.error("Exception occurred while parsing 1/1e100 config")
 			sys.exit(1)
-
-		#if not re.match('^(debug|info|warn|error|critical)$', self.config['log_level']) :
-		#	raise("Invalid value for 'log_level' setting in configuration.")
-		#	exit(1)
-		#else:
-		#	self.config['log_level'] = eval('ctx.log.'+self.config['log_level'].upper())
-
-		#logging.basicConfig(
-		#	filename=self.config['log_file']
-		#	,format='%(asctime)s %(levelname)s: %(message)s'
-		#	, datefmt='%m/%d/%Y %I:%M:%S %p'
-		#	, level=logging.INFO
-		#)
 		ctx.log.debug('__init__() done.')
 
 	def request(self,flow):
@@ -97,7 +84,7 @@ class OneOver1e100Proxy:
 		try:
 			urlparts = urlparse(orig_url)
 		except Exception as e:
-			logging.critical('Unable to parse URL {}: {}'.format(orig_url,e))
+			ctx.log.error('Unable to parse URL {}: {}'.format(orig_url,e))
 			block = True
 		url = urlunsplit([urlparts.scheme,host,urlparts.path,urlparts.query,''])
 
@@ -277,16 +264,14 @@ class CacheFile(object):
 			pickle.dump(headers,file_fd)
 			file_fd.close()
 		except pickle.PicklingError as e:
-			ctx.log.critical('Unable to pickle headers.')
+			ctx.log.error('Unable to pickle headers.')
 			raise e
 		except Exception as e:
 			ctx.log.debug(str(e))
 			return False
 
 		if self.load():
-			ctx.log.debug("OK data="+self.__data.decode())
 			return True
-		ctx.log.debug("NO data="+self.__data.decode())
 		return False
 
 	#
