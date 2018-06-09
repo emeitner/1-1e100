@@ -17,9 +17,10 @@ Install
   git clone https://github.com/emeitner/1-1e100.git .
   cp config.ini.example config.ini
 
-  virtualenv -p `which python3` venv
+  virtualenv -p python3 venv
   . venv/bin/activate
   pip install mitmproxy==3.0.4
+  pip install configparser
 
 
 Components
