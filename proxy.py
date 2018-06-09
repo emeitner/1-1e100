@@ -40,8 +40,8 @@ import sys
 from io import StringIO
 import pickle
 import logging
-import traceback
-from pprint import pprint,pformat
+
+#import traceback
 
 class OneOver1e100Proxy:
 
@@ -156,7 +156,7 @@ class OneOver1e100Proxy:
 		if type(content_type) == str:
 			content_type = content_type.encode()
 
-		print('content_type={} block={} reason={}'.format(content_type,block,reason))
+		ctx.log.debug('content_type={} block={} reason={}'.format(content_type,block,reason))
 
 		resp = http.HTTPResponse(
 			'HTTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
@@ -181,10 +181,9 @@ class OneOver1e100Proxy:
 		ctx.log.debug('RESPONSE: '+pformat(resp))
 		flow.response = resp
 		#flow.kill()
-		ctx.log.debug("---------------------------------")
+		ctx.log.debug( 'request() done' )
 		#return True
 
-		# end request()
 
 	def get_path(self,url):
   		_, _, path, _, _, _ = urlparse(url)
@@ -280,7 +279,6 @@ class CacheFile(object):
 	def is_in_cache(self):
 		return exists( self.__cache_file_path )
 
-
 	#
 	# Load the data from the cache
 	#
@@ -321,13 +319,6 @@ class CacheFile(object):
 	#
 	def _create_cache_file_name(self,host,path):
 		return os.path.join( self.__cache_dir, host, quote_plus( path ) )
-
-	def __write_log(self,msg,extra=None):
-		log_fd = open('/tmp/1-1e100.log', 'a')
-		log_fd.write("%s :: %s\n" % (self.__url, msg) )
-		if extra:
-			log_fd.write(pformat(extra))
-			log_fd.close()
 
 	# end class CacheFile(object):
 
