@@ -63,6 +63,9 @@ class OneOver1e100Proxy:
 			self.config['rules'] = {}
 			for host,regex in cfgparser.items('rules'):
 				self.config['rules'][host] = regex
+#			self.config['passthrough'] = {}
+#			for host,regex in cfgparser.items('passthrough'):
+#				self.config['passthrough'][host] = regex
 		except configparser.ParsingError:
 			ctx.log.critical("Exception occurred while parsing 1/1e100 config")
 			sys.exit(1)
@@ -142,6 +145,10 @@ class OneOver1e100Proxy:
 			# end if re.search(self.config['rules'][host],get_path(url)):
 			else: # not re.search(self.config['rules'][host],self.get_path(url)):
 				block = self.config['default_policy_is_block']
+#		elif host in self.config['passthrough'].keys():
+#			if re.search(self.config['passthrough'][host],self.get_path(url)):
+#				ctx.log.info( rid+ ' ****************************** PASSTHROUGH: '+url  )
+#				return
 		else: # host NOT in self.config['rules'].keys()
 			block = self.config['default_policy_is_block']
 
@@ -190,14 +197,12 @@ class OneOver1e100Proxy:
 			}
 
 		)
-
-		ctx.log.debug('RESPONSE: '+pformat(resp))
+		ctx.log.debug('RESPONSE, new: '+pformat(resp))
 		flow.response = resp
 		#flow.kill()
-		ctx.log.debug("---------------------------------")
+		ctx.log.debug("request() done. ---------------------------------")
 		#return True
-
-		# end request()
+    # end request()
 
 	def get_path(self,url):
   		_, _, path, _, _, _ = urlparse(url)

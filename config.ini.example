@@ -29,3 +29,6 @@ www.gstatic.com: /images/icons/.*
 mm-staticassets.storage.googleapis.com: /.*
 ; gstatic.com
 ; googleusercontent.com
+
+[passthrough]
+www.google.com: /recaptcha/.*
