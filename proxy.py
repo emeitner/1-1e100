@@ -30,9 +30,11 @@ from mitmproxy.net.http import Headers
 from mitmproxy import http
 from pprint import pprint,pformat
 from os.path import exists, isdir, dirname
-from urllib.request import urlretrieve
+from urllib.request import urlopen
 from urllib.parse import quote_plus
 from urllib.parse import urlparse,urlunsplit
+from urllib.error import HTTPError
+
 import configparser
 import os
 import re
@@ -133,6 +135,12 @@ class OneOver1e100Proxy:
               content_type = cache.headers['Content-Type']
               status_code = 200
               reason = "OK3"
+            elif cache.code==404:
+              ctx.log.error( rid+ ' ERROR: '+cache.error_text  )
+              data=''
+              content_type = "text/html"
+              status_code = cache.code
+              reason = "Not found"
             else:
               ctx.log.error( rid+ ' ERROR: '+cache.error_text  )
               data=''
@@ -187,18 +195,9 @@ class OneOver1e100Proxy:
       ,reason
       ,Headers(
         Content_Type=content_type
+        ,Crampus='Engaged'
       )
       ,data
-    )
-    resp2 = http.HTTPResponse.make(
-      #b'HTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
-      status_code
-      #,reason
-      ,data
-      ,{
-        'Content_Type':content_type
-      }
-
     )
     ctx.log.debug('RESPONSE, new: '+pformat(resp))
     flow.response = resp
@@ -231,6 +230,7 @@ class CacheFile(object):
     self.__data = ''
     self.__headers = ''
     self.__error_text = ''
+    self.__code = 0
 
   @property
   def url(self):
@@ -256,7 +256,9 @@ class CacheFile(object):
   @property
   def error_text(self):
       return self.__error_text
-
+  @property
+  def code(self):
+      return self.__code
   #
   # download the file pointed at by self.__url and store it in the cache
   # along with the headers
@@ -272,13 +274,23 @@ class CacheFile(object):
     if exists( self.__cache_file_path ):
       os.remove( self.__cache_file_path )
     try:
-      [fn,resp] = urlretrieve(self.__url,self.__cache_file_path )
+      resp = urlopen( self.__url )
+    except HTTPError as e:
+      self.__code = e.code
+      self.__error_text = "retrieve(%s,%s) urlretrieve(): %s: %s" %(self.__url,self.__cache_file_path, e.code, e.strerror)
+      return False
     except IOError as e:
       self.__error_text = "retrieve(%s,%s) urlretrieve(): %s" %(self.__url,self.__cache_file_path, e.strerror)
       return False
-    #headers = dict(map((lambda h: (h.replace("\r\n",'')).split(':',1)),resp.headers))
-    headers = dict( resp.items() )
-    #print('HEADERS='+pformat(headers))
+    self.__code = resp.getcode()
+    data = resp.read()
+    try:
+      with open(self.__cache_file_path, 'wb') as file_fd:
+        file_fd.write(data)
+    except OSError as e:
+      self.__error_text = "retrieve(%s,%s) saving data : %s" %(self.__url,self.__cache_file_path, e.strerror)
+      return False
+    headers = dict( resp.getheaders() )
     headers_file = self.__cache_file_path+'.headers'
     try:
       file_fd = open(headers_file, 'wb')
@@ -312,6 +324,7 @@ class CacheFile(object):
     self.__headers = self.__load_headers( self.__cache_file_path+'.headers' )
     if not self.__data or not self.__headers:
         return False
+    self.__code = 200
     return True
 
   #
