@@ -1,4 +1,4 @@
-#!/home/1-1e100/venv/bin/python
+#!./venv/bin/python
 
 from urllib.request import urlopen
 import bs4
