@@ -82,6 +82,9 @@ class OneOver1e100Proxy:
     #  , datefmt='%m/%d/%Y %I:%M:%S %p'
     #  , level=logging.INFO
     #)
+
+    ctx.options.upstream_cert = False
+
     ctx.log.debug('__init__() done.')
 
   def request(self,flow):
