@@ -65,9 +65,9 @@ class OneOver1e100Proxy:
       self.config['rules'] = {}
       for host,regex in cfgparser.items('rules'):
         self.config['rules'][host] = regex
-#      self.config['passthrough'] = {}
-#      for host,regex in cfgparser.items('passthrough'):
-#        self.config['passthrough'][host] = regex
+      self.config['passthrough'] = {}
+      for host,regex in cfgparser.items('passthrough'):
+        self.config['passthrough'][host] = regex
     except configparser.ParsingError:
       ctx.log.critical("Exception occurred while parsing 1/1e100 config")
       sys.exit(1)
@@ -156,10 +156,14 @@ class OneOver1e100Proxy:
       # end if re.search(self.config['rules'][host],get_path(url)):
       else: # not re.search(self.config['rules'][host],self.get_path(url)):
         block = self.config['default_policy_is_block']
-#    elif host in self.config['passthrough'].keys():
-#      if re.search(self.config['passthrough'][host],self.get_path(url)):
-#        ctx.log.info( rid+ ' ****************************** PASSTHROUGH: '+url  )
-#        return
+    elif host in self.config['passthrough'].keys():
+      if re.search(self.config['passthrough'][host],self.get_path(url)):
+        ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,host,self.config['passthrough'][host],url)  )
+        return
+    elif '*' in self.config['passthrough'].keys():
+      if re.search(self.config['passthrough']['*'],self.get_path(url)):
+        ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,'*',self.config['passthrough']['*'],url)  )
+        return
     else: # host NOT in self.config['rules'].keys()
       block = self.config['default_policy_is_block']
 

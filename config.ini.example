@@ -26,9 +26,10 @@ ajax.googleapis.com: /ajax/.+
 fonts.googleapis.com: /.*
 fonts.gstatic.com: /.*
 www.gstatic.com: /images/icons/.*
+;www.gstatic.com: /images/icons/.*|/recaptcha/.*
 mm-staticassets.storage.googleapis.com: /.*
 ; gstatic.com
 ; googleusercontent.com
 
 [passthrough]
-www.google.com: /recaptcha/.*
+;www.google.com: /recaptcha/.*
