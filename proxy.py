@@ -4,7 +4,7 @@ Part of the 1/1e100 project: https://github.com/emeitner/1-1e100
 This is a script for mitmproxy/mitmdump running in transparent mode.
 Based on: https://raw.githubusercontent.com/mitmproxy/mitmproxy/master/examples/redirect_requests.py
 
-Copyright (c) 2016 Erik Meitner
+Copyright (c) 2019 Erik Meitner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -160,15 +160,19 @@ class OneOver1e100Proxy:
       if re.search(self.config['passthrough'][host],self.get_path(url)):
         ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,host,self.config['passthrough'][host],url)  )
         return
+      else:
+        block = self.config['default_policy_is_block']
     elif '*' in self.config['passthrough'].keys():
       if re.search(self.config['passthrough']['*'],self.get_path(url)):
         ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,'*',self.config['passthrough']['*'],url)  )
         return
+      else:
+        block = self.config['default_policy_is_block']
     else: # host NOT in self.config['rules'].keys()
       block = self.config['default_policy_is_block']
 
     if self.config['default_policy_is_block']:
-      ctx.log.info('Default policy is BLOCK')
+      ctx.log.info('Default policy: BLOCK')
 
     if block == True:
       ctx.log.info('URL blocked: '+url)
