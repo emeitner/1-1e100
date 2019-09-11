@@ -92,6 +92,7 @@ class OneOver1e100Proxy:
   def request(self,flow):
     ctx.log.debug( 'request():' )
     block = False
+    handled = False
     status_code = 0
     reason=''
     content_type=''
@@ -106,7 +107,7 @@ class OneOver1e100Proxy:
       urlparts = urlparse(orig_url)
     except Exception as e:
       logging.critical('Unable to parse URL {}: {}'.format(orig_url,e))
-      block = True
+
     url = urlunsplit([urlparts.scheme,host,urlparts.path,urlparts.query,''])
 
     self.req_id += 1
@@ -153,23 +154,25 @@ class OneOver1e100Proxy:
             status_code = 404
             reason = "NOPE"
         # end else: #not cached
+        handled = True
       # end if re.search(self.config['rules'][host],get_path(url)):
-      else: # not re.search(self.config['rules'][host],self.get_path(url)):
+      #else: # not re.search(self.config['rules'][host],self.get_path(url)):
+      #  block = self.config['default_policy_is_block']
+    if not handled:
+      if host in self.config['passthrough'].keys():
+        if re.search(self.config['passthrough'][host],self.get_path(url)):
+          ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,host,self.config['passthrough'][host],url)  )
+          return
+        else:
+          block = self.config['default_policy_is_block']
+      elif '*' in self.config['passthrough'].keys():
+        if re.search(self.config['passthrough']['*'],self.get_path(url)):
+          ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,'*',self.config['passthrough']['*'],url)  )
+          return
+        else:
+          block = self.config['default_policy_is_block']
+      else: # host NOT in self.config['rules'].keys()
         block = self.config['default_policy_is_block']
-    elif host in self.config['passthrough'].keys():
-      if re.search(self.config['passthrough'][host],self.get_path(url)):
-        ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,host,self.config['passthrough'][host],url)  )
-        return
-      else:
-        block = self.config['default_policy_is_block']
-    elif '*' in self.config['passthrough'].keys():
-      if re.search(self.config['passthrough']['*'],self.get_path(url)):
-        ctx.log.info( '{} ****************************** PASSTHROUGH {} - {}: {}'.format(rid,'*',self.config['passthrough']['*'],url)  )
-        return
-      else:
-        block = self.config['default_policy_is_block']
-    else: # host NOT in self.config['rules'].keys()
-      block = self.config['default_policy_is_block']
 
     if self.config['default_policy_is_block']:
       ctx.log.info('Default policy: BLOCK')
