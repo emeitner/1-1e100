@@ -97,7 +97,7 @@ class OneOver1e100Proxy:
     reason=''
     content_type=''
     data=''
-
+    cache = None
     # pretty_host(hostheader=True) takes the Host: header of the request into account,
     # which is useful in transparent mode where we usually only have the IP otherwise.
     host = flow.request.pretty_host
@@ -200,14 +200,19 @@ class OneOver1e100Proxy:
 
     print('content_type={} block={} reason={}'.format(content_type,block,reason))
 
+    if cache is not None:
+      headers = cache.headers
+    else:
+      headers = Headers(
+        Content_Type=content_type
+        ,Crampus='Engaged'
+      )
+
     resp = http.HTTPResponse(
       'HTTP/1.1'  # http://stackoverflow.com/questions/34677062/return-custom-response-with-mitmproxy
       ,status_code
       ,reason
-      ,Headers(
-        Content_Type=content_type
-        ,Crampus='Engaged'
-      )
+      ,headers
       ,data
     )
     ctx.log.debug('RESPONSE, new: '+pformat(resp))
